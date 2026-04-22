@@ -1,0 +1,20 @@
+# 环境变量与密钥（勿提交真实 .env）
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# 本地数据与状态
+*.db
+processed_emails.txt
+
+# 常见 IDE
+.idea/
+.vscode/
