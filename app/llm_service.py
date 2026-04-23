@@ -118,14 +118,13 @@ def detect_stage(thread_history: list[dict], db_stage: int) -> dict:
 _STAGE_TASKS = {
     1: """
 【当前任务：破冰邀请】
-目标：以真诚、热情的方式表达我们对 KOL 内容的高度欣赏，提出希望与其合作，让对方免费体验我们的产品。
+目标：以简洁真诚的商务语气表达合作意向，让对方愿意了解详情。
 
 要点：
-- 在邮件开头大力赞美对方的内容质量、独特风格和影响力（具体化，不要泛泛而谈）
-- 表达"能与您这样出色的创作者合作，是我们品牌的莫大荣幸"
-- 提出希望免费寄送产品，供对方在日常生活中真实体验
-- 语气真诚、不功利，不要急于解释商业条件
-- 结尾期待回复，留下悬念
+- 简短自我介绍品牌，一句话说明为何联系对方（如内容风格与品牌调性契合）
+- 提出希望寄送产品供对方真实体验，不急于解释完整商业条件
+- 全程像一封普通商务邮件，而非营销广告；不堆叠形容词和感叹
+- 结尾用开放式问句邀请回复即可
 """,
     2: """
 【当前任务：规则确认】
@@ -243,14 +242,21 @@ def generate_kol_reply(
 
 3. 推荐替代词汇：
    - Product Evaluation / 产品测评
-   - Reimbursement / Experience Fee Reimbursement / 体验费用报销
+   - cover your cost / refund your purchase / 报销购买费用（避免单独大写 REIMBURSEMENT）
    - Honest Sharing / Genuine Experience / 真诚分享 / 真实体验
    - Collaboration / Partnership / 合作 / 长期伙伴
 
-4. 格式要求：
+4. 反垃圾邮件写作规范（Gmail 内容过滤器敏感点）：
+   - 开头不超过 1 句问候，禁止连续 2 句以上的夸赞或溢美（会触发营销邮件检测）
+   - 全文语气像普通商务往来邮件，而非广告文案
+   - 避免全大写词汇、感叹号堆叠、以及"amazing / incredible / deeply inspired"此类营销腔
+   - "reimburse / reimbursement" 每封最多出现 1 次，且用小写嵌入句子中
+   - 避免开头连续 3 个词都是形容词或副词修饰语
+
+5. 格式要求：
    - 直接输出邮件正文，不要加任何解释性文字或标注
    - 结尾署名使用：{config.BRAND_SIGNATURE}（不要用占位符）
-   - 长度控制在 200-350 词，简洁而充满温度
+   - 长度控制在 150-250 词，简洁自然，不要填充无实质内容的客套话
 {product_section}
 # 当前阶段任务
 {stage_task}"""

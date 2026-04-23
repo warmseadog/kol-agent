@@ -20,10 +20,16 @@ import logging
 import smtplib
 import ssl
 import html as html_lib
+from email import charset as _charset_mod
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import decode_header as _decode_header_lib
 from email.utils import parseaddr, make_msgid, formataddr, formatdate
+
+# quoted-printable 比 base64 更接近真实邮件客户端（Outlook/Gmail）的编码方式，
+# 能降低被 Gmail 内容过滤器识别为批量自动化邮件的概率。
+_UTF8_QP = _charset_mod.Charset("utf-8")
+_UTF8_QP.body_encoding = _charset_mod.QP
 
 from imap_tools import MailBox, AND
 
@@ -171,30 +177,23 @@ def send_reply(
         msg["Date"]       = formatdate(localtime=True)
         msg["Message-ID"] = make_msgid(domain=config.EMAIL_ADDRESS.split("@")[-1])
 
-        # ── 防 Spam 三件套（Thread 串联） ──────────────────────────────────
+        # ── Thread 串联头部（告知 Gmail 这是合法会话回复） ────────────────
         msg["In-Reply-To"] = orig_msg_id
         msg["References"]  = new_references
 
-        # ── 额外防 Spam 头部 ───────────────────────────────────────────────
-        msg["Reply-To"] = formataddr((config.SENDER_DISPLAY_NAME, config.EMAIL_ADDRESS))
-
-        # Auto-Submitted: no 告知 Gmail 这是人工触发的回复，非批量自动化邮件。
-        # 如果不加或设为 auto-replied，Gmail 会将其按"自动回复"处理，
-        # 大幅提高进垃圾箱的概率。
-        msg["Auto-Submitted"] = "no"
-
-        # Importance/Priority: 声明为普通优先级邮件（与真实商务邮件一致）
-        msg["Importance"] = "Normal"
-        msg["X-Priority"] = "3"
+        # 注意：以下头部刻意省略，原因如下：
+        #   Reply-To   — 与 From 相同时是冗余且可疑的，真人 Gmail/Outlook 回复不带此头
+        #   Auto-Submitted — 加 "no" 反而是欺骗性信号，Gmail ML 可识别自动化模式
+        #   Importance / X-Priority — 营销/spam 邮件特征，真实商务邮件通常不携带
 
         # ── 附加纯文本 part（必须在 HTML 之前，RFC 2046 规定后者优先显示） ──
-        text_part = MIMEText(reply_body, "plain", "utf-8")
+        # 使用 quoted-printable 编码：比 base64 更接近手动发出的商务邮件
+        text_part = MIMEText(reply_body, "plain", _UTF8_QP)
         msg.attach(text_part)
 
         # ── 附加 HTML part（与真实邮件客户端行为一致） ─────────────────────
-        # 将换行转为 <br>，段落间距用 <p> 包裹，保持可读性
         html_body = _text_to_html(reply_body, config.SENDER_DISPLAY_NAME)
-        html_part = MIMEText(html_body, "html", "utf-8")
+        html_part = MIMEText(html_body, "html", _UTF8_QP)
         msg.attach(html_part)
 
         # ── SSL 连接并发送 ─────────────────────────────────────────────────
