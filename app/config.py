@@ -34,6 +34,13 @@ class Config:
     # Database
     DB_FILE: str = _get("DB_FILE", "kol_agent.db")
 
+    # Thread memory
+    MAX_THREAD_MESSAGES:  int = int(_get("MAX_THREAD_MESSAGES", "10"))
+    BODY_EXCERPT_LENGTH:  int = int(_get("BODY_EXCERPT_LENGTH", "600"))
+
+    # Products
+    PRODUCTS_PATH: str = _get("PRODUCTS_PATH", "data/products.json")
+
     # Server
     HOST:                 str = _get("HOST", "0.0.0.0")
     PORT:                 int = int(_get("PORT", "8000"))

@@ -172,7 +172,8 @@ def generate_kol_reply(
     kol_name: str,
     kol_email: str,
     stage: int,
-    latest_message: str
+    latest_message: str,
+    candidate_products: list[dict] | None = None,
 ) -> str:
     """
     根据当前合作阶段和 Thread 历史，生成面向 KOL 的高情商回复邮件正文。
@@ -181,13 +182,15 @@ def generate_kol_reply(
       - 语言镜像：自动检测 KOL 最近来信的语言，用完全相同的语言回复
       - 极致服务语气：谦卑、热情、以对方为中心
       - 内容合规：不使用可能触发 Spam 或法律风险的词汇
+      - 产品感知：若提供候选产品，由模型自主决定是否融入，最多提及 2 个
 
     Args:
-        thread_history: 格式化后的历史消息列表
-        kol_name:       KOL 姓名
-        kol_email:      KOL 邮箱
-        stage:          当前合作阶段 (1-4)
-        latest_message: KOL 最新一封来信的正文
+        thread_history:     格式化后的历史消息列表（含多轮 KOL + 我方）
+        kol_name:           KOL 姓名
+        kol_email:          KOL 邮箱
+        stage:              当前合作阶段 (1-4)
+        latest_message:     KOL 最新一封来信的正文
+        candidate_products: 可选候选产品列表，每条含 name/tagline/scene/intro 字段
 
     Returns:
         str: 可直接发送的回复邮件正文（纯文本）
@@ -196,11 +199,27 @@ def generate_kol_reply(
     history_lines = []
     for msg in thread_history:
         role = "Our Team" if msg.get("is_mine") else f"Creator ({kol_name or 'KOL'})"
-        body_snippet = msg["body"][:600].replace("\n", " ")
+        body_snippet = msg["body"][:config.BODY_EXCERPT_LENGTH].replace("\n", " ")
         history_lines.append(f"[{role}]: {body_snippet}")
     history_text = "\n\n---\n\n".join(history_lines) or "（首次联系，无历史记录）"
 
     stage_task = _STAGE_TASKS.get(stage, _STAGE_TASKS[2])
+
+    # 构建产品参考区块（仅在有候选产品时注入）
+    product_section = ""
+    if candidate_products:
+        product_lines = []
+        for p in candidate_products[:5]:
+            line = f"- 【{p.get('name', '')}】{p.get('tagline', '')}（适用：{p.get('scene', '')}）"
+            product_lines.append(line)
+        product_section = f"""
+# 可参考的品牌产品（供你自主决定是否提及）
+以下是当前可供合作体验的产品，**你来判断**是否在这封邮件中自然提及——若提及，最多 2 个，融入邮件内容，切勿生硬推销：
+
+{chr(10).join(product_lines)}
+
+若不适合提及（如当前阶段不需要介绍产品），可完全忽略以上列表。
+"""
 
     system_prompt = f"""你是 {config.BRAND_NAME} 品牌的高级 KOL 合作专员，也是一位极度专业、谦卑、热情的品牌大使。
 
@@ -232,7 +251,7 @@ def generate_kol_reply(
    - 直接输出邮件正文，不要加任何解释性文字或标注
    - 结尾署名使用：{config.BRAND_SIGNATURE}（不要用占位符）
    - 长度控制在 200-350 词，简洁而充满温度
-
+{product_section}
 # 当前阶段任务
 {stage_task}"""
 

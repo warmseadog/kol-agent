@@ -13,7 +13,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
 from app.config import config
-from app.database import init_db, list_all_threads
+from app.database import (
+    init_db,
+    list_all_threads,
+    list_processed_messages,
+    get_thread_messages,
+    delete_thread,
+    delete_all_data,
+)
 from app.mail_service import fetch_unread_emails
 from app.agent import run_check_cycle
 
@@ -67,7 +74,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="KOL Outreach Agent",
     description="电商达人合作谈判智能体 — 阿里企业邮箱 + AI 驱动，防 Spam 回复",
-    version="2.1.0",
+    version="3.0.0",
     lifespan=lifespan,
 )
 
@@ -89,7 +96,7 @@ async def _polling_loop():
 
 @app.get("/", summary="健康检查")
 async def root():
-    return {"status": "ok", "agent": "KOL Outreach Agent", "version": "2.1.0"}
+    return {"status": "ok", "agent": "KOL Outreach Agent", "version": "3.0.0"}
 
 
 @app.post("/start-auto", summary="启动后台自动轮询")
@@ -128,11 +135,11 @@ async def check_now():
 @app.get("/status", summary="查看服务状态")
 async def get_status():
     return {
-        "auto_polling":         _is_running,
+        "auto_polling":          _is_running,
         "poll_interval_seconds": config.POLL_INTERVAL,
-        "email_account":        config.EMAIL_ADDRESS,
-        "brand":                config.BRAND_NAME,
-        "llm_model":            config.LLM_MODEL,
+        "email_account":         config.EMAIL_ADDRESS,
+        "brand":                 config.BRAND_NAME,
+        "llm_model":             config.LLM_MODEL,
     }
 
 
@@ -153,6 +160,32 @@ async def list_emails(limit: int = 10):
 async def list_kols():
     threads = list_all_threads()
     return {"count": len(threads), "kols": threads}
+
+
+@app.get("/processed", summary="查看最近已处理的邮件记录")
+async def list_processed(limit: int = 50):
+    records = list_processed_messages(limit=limit)
+    return {"count": len(records), "records": records}
+
+
+@app.get("/thread/{thread_id}", summary="查看某个线程的完整对话历史")
+async def get_thread(thread_id: str, limit: int = 20):
+    msgs = get_thread_messages(thread_id, limit=limit)
+    return {"thread_id": thread_id, "count": len(msgs), "messages": msgs}
+
+
+@app.delete("/thread/{thread_id}", summary="删除指定 Thread 的全部数据")
+async def delete_thread_api(thread_id: str):
+    deleted = delete_thread(thread_id)
+    logger.info(f"🗑️ 已删除 Thread: {thread_id[:60]} | 共 {deleted} 条记录")
+    return {"status": "deleted", "thread_id": thread_id, "deleted_rows": deleted}
+
+
+@app.delete("/all-data", summary="清空全部数据（测试重置）")
+async def delete_all_api():
+    result = delete_all_data()
+    logger.info(f"🗑️ 已清空全部数据: {result}")
+    return {"status": "cleared", **result}
 
 
 @app.get("/logs", summary="获取最近运行日志")
@@ -177,7 +210,7 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);min-height:100vh;padding:20px;color:#fff}
-.wrap{max-width:1280px;margin:0 auto}
+.wrap{max-width:1400px;margin:0 auto}
 h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 .controls{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
 .btn{padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:14px;transition:.2s}
@@ -185,90 +218,302 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 .btn-stop{background:#f87171;color:#fff}.btn-stop:hover{background:#ef4444}
 .btn-check{background:#fbbf24;color:#1c1917}.btn-check:hover{background:#f59e0b}
 .btn-rf{background:#818cf8;color:#fff}.btn-rf:hover{background:#6366f1}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.btn-del{background:#be123c;color:#fff}.btn-del:hover{background:#9f1239}
+.btn-del-sm{background:transparent;border:1px solid #be123c;color:#fb7185;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;transition:.15s}.btn-del-sm:hover{background:#be123c;color:#fff}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
 .card{background:rgba(255,255,255,.08);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.12)}
 .card h4{color:#94a3b8;font-size:11px;margin-bottom:8px;text-transform:uppercase}
 .card .val{font-size:20px;font-weight:700;color:#a78bfa;word-break:break-all}
 .val.on{color:#34d399}.val.off{color:#f87171}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:760px){.grid2{grid-template-columns:1fr}}
-.panel{background:rgba(255,255,255,.05);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.1)}
-.panel h3{color:#a78bfa;margin-bottom:12px;font-size:14px}
-.log-item{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-family:Consolas,monospace;font-size:12px;display:flex;gap:8px}
-.log-ts{color:#475569;min-width:150px;flex-shrink:0}
-.log-lv{padding:1px 6px;border-radius:3px;font-size:10px;min-width:52px;text-align:center;flex-shrink:0}
-.lv-INFO{background:#1e3a5f;color:#7dd3fc}.lv-WARNING{background:#422006;color:#fbbf24}.lv-ERROR{background:#450a0a;color:#fca5a5}
-.log-msg{color:#cbd5e1;flex:1;word-break:break-all}
-.kol-item{padding:10px 12px;border-left:3px solid #a78bfa;background:rgba(167,139,250,.05);margin-bottom:8px;border-radius:0 8px 8px 0}
+/* tab navigation */
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:0}
+.tab{padding:10px 20px;cursor:pointer;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;color:#94a3b8;background:rgba(255,255,255,.04);border:1px solid transparent;border-bottom:none;transition:.2s}
+.tab.active{color:#a78bfa;background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3)}
+.tab-content{display:none}.tab-content.active{display:block}
+.panel{background:rgba(255,255,255,.05);border-radius:0 12px 12px 12px;padding:16px;border:1px solid rgba(255,255,255,.1)}
+/* KOL list */
+.kol-item{padding:10px 12px;border-left:3px solid #a78bfa;background:rgba(167,139,250,.05);margin-bottom:8px;border-radius:0 8px 8px 0;cursor:pointer;transition:.15s}
+.kol-item:hover{background:rgba(167,139,250,.1)}
 .kol-item.s1{border-color:#60a5fa}.kol-item.s2{border-color:#fbbf24}.kol-item.s3{border-color:#34d399}.kol-item.s4{border-color:#f472b6}
 .kol-name{font-weight:700;font-size:14px;margin-bottom:3px}
 .kol-meta{font-size:11px;color:#94a3b8}
 .sb{display:inline-block;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px}
 .sb1{background:#1e3a5f;color:#60a5fa}.sb2{background:#422006;color:#fbbf24}.sb3{background:#064e3b;color:#34d399}.sb4{background:#4a044e;color:#f472b6}
+/* processed table */
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;padding:8px 10px;background:rgba(255,255,255,.06);color:#94a3b8;font-size:11px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.1)}
+.tbl td{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);color:#cbd5e1;vertical-align:top}
+.tbl tr:hover td{background:rgba(255,255,255,.03)}
+.tbl .tid{font-family:Consolas,monospace;font-size:10px;color:#6366f1;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbl .excerpt{color:#64748b;font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* thread detail modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#1e1b4b;border-radius:14px;padding:24px;max-width:700px;width:95%;max-height:80vh;overflow-y:auto;border:1px solid rgba(167,139,250,.3)}
+.modal h3{color:#a78bfa;margin-bottom:16px;font-size:16px}
+.msg-bubble{padding:10px 14px;border-radius:10px;margin-bottom:10px;font-size:13px;line-height:1.6}
+.msg-kol{background:rgba(99,102,241,.15);border-left:3px solid #6366f1}
+.msg-our{background:rgba(52,211,153,.1);border-left:3px solid #34d399;margin-left:20px}
+.msg-role{font-size:10px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.msg-kol .msg-role{color:#818cf8}.msg-our .msg-role{color:#34d399}
+.msg-ts{font-size:10px;color:#475569;margin-top:4px}
+.msg-subj{font-size:11px;color:#64748b;margin-bottom:3px}
+.close-btn{position:sticky;top:0;float:right;background:#f87171;border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700;margin-bottom:8px}
+/* log */
+.log-item{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-family:Consolas,monospace;font-size:12px;display:flex;gap:8px}
+.log-ts{color:#475569;min-width:150px;flex-shrink:0}
+.log-lv{padding:1px 6px;border-radius:3px;font-size:10px;min-width:52px;text-align:center;flex-shrink:0}
+.lv-INFO{background:#1e3a5f;color:#7dd3fc}.lv-WARNING{background:#422006;color:#fbbf24}.lv-ERROR{background:#450a0a;color:#fca5a5}
+.log-msg{color:#cbd5e1;flex:1;word-break:break-all}
 .empty{text-align:center;color:#475569;padding:24px;font-size:13px}
+#api-banner{display:none;margin:0 0 16px;padding:12px 16px;border-radius:8px;border:1px solid #f59e0b;background:rgba(180,83,9,.25);color:#fbbf24;font-size:13px;word-break:break-all}
+#api-banner.show{display:block}
+#api-banner.ok{border-color:#34d399;background:rgba(6,78,59,.3);color:#6ee7b7}
 </style>
 </head>
 <body>
 <div class="wrap">
+<div id="api-banner" role="status"></div>
 <h1>🤖 KOL Outreach Agent 监控面板</h1>
 <div class="controls">
   <button class="btn btn-start" onclick="api('POST','/start-auto','已启动')">▶ 启动轮询</button>
   <button class="btn btn-stop"  onclick="api('POST','/stop-auto','已停止')">⏹ 停止轮询</button>
-  <button class="btn btn-check" onclick="api('POST','/check','检查完成').then(loadKols)">📬 立即检查</button>
+  <button class="btn btn-check" onclick="api('POST','/check','检查完成').then(()=>{loadKols();loadProcessed();})">📬 立即检查</button>
   <button class="btn btn-rf"    onclick="loadAll()">🔄 刷新</button>
+  <button class="btn btn-del"   onclick="clearAll()">🗑️ 清空全部</button>
 </div>
 <div class="cards">
   <div class="card"><h4>轮询状态</h4><div class="val" id="c-status">-</div></div>
   <div class="card"><h4>轮询间隔</h4><div class="val" id="c-interval">-</div></div>
-  <div class="card"><h4>邮箱账户</h4><div class="val" id="c-email" style="font-size:12px">-</div></div>
-  <div class="card"><h4>LLM 模型</h4><div class="val" id="c-model" style="font-size:13px">-</div></div>
+  <div class="card"><h4>邮箱账户</h4><div class="val" id="c-email" style="font-size:11px">-</div></div>
+  <div class="card"><h4>LLM 模型</h4><div class="val" id="c-model" style="font-size:12px">-</div></div>
   <div class="card"><h4>KOL 总数</h4><div class="val" id="c-kols">-</div></div>
+  <div class="card"><h4>已处理邮件</h4><div class="val" id="c-proc">-</div></div>
 </div>
-<div class="grid2">
-  <div class="panel"><h3>📊 KOL 会话进度</h3><div id="kol-list"><div class="empty">加载中...</div></div></div>
-  <div class="panel"><h3>📝 实时日志</h3><div id="log-list" style="max-height:460px;overflow-y:auto"><div class="empty">加载中...</div></div></div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('kols')">📊 KOL 会话进度</div>
+  <div class="tab" onclick="switchTab('processed')">📋 处理流水</div>
+  <div class="tab" onclick="switchTab('logs')">📝 实时日志</div>
+</div>
+
+<div id="tab-kols" class="tab-content active">
+  <div class="panel"><div id="kol-list"><div class="empty">加载中...</div></div></div>
+</div>
+
+<div id="tab-processed" class="tab-content">
+  <div class="panel">
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>处理时间</th>
+          <th>KOL</th>
+          <th>Thread ID</th>
+          <th>邮件 ID</th>
+          <th>主题</th>
+          <th>内容摘要</th>
+        </tr></thead>
+        <tbody id="proc-body"><tr><td colspan="6" class="empty">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-logs" class="tab-content">
+  <div class="panel"><div id="log-list" style="max-height:520px;overflow-y:auto"><div class="empty">加载中...</div></div></div>
 </div>
 </div>
+
+<!-- Thread detail modal -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">✕ 关闭</button>
+    <h3 id="modal-title">对话详情</h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
 <script>
 const SL={1:'破冰邀请',2:'规则确认',3:'跟进评价',4:'返款确认'};
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function showBanner(text,isOk){
+  const b=document.getElementById('api-banner');
+  b.textContent=text;
+  b.className='show'+(isOk?' ok':'');
+}
+function clearBannerIfOk(){
+  const b=document.getElementById('api-banner');
+  b.className='';
+  b.textContent='';
+}
+/** 带状态检查与 body 采样的安全 JSON 解析，避免 500 返回 HTML 时整页卡死 */
+async function fetchJson(url,opts){
+  const r=await fetch(url,opts);
+  const ct=(r.headers.get('content-type')||'');
+  if(!r.ok){
+    const t=await r.text();
+    const hint=t.slice(0,120).replace(/\\s+/g,' ');
+    throw new Error('HTTP '+r.status+': '+(hint||'无内容'));
+  }
+  if(!ct.includes('json')){
+    const t=await r.text();
+    throw new Error('非 JSON 响应: '+(t.slice(0,80)));
+  }
+  return r.json();
+}
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    const names=['kols','processed','logs'];
+    el.classList.toggle('active',names[i]===t);
+  });
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+}
 async function api(m,u,msg){
-  try{const r=await fetch(u,{method:m});const d=await r.json();
-  if(msg)alert(msg+(d.processed!=null?`\\n处理 ${d.processed} 封，成功 ${d.success} 封`:''));
-  loadStatus();return d;}catch(e){alert('失败:'+e.message);}
+  try{
+    const d=await fetchJson(u,{method:m});
+    if(msg)alert(msg+(d&&d.processed!=null?`\\n处理 ${d.processed} 封，成功 ${d.success} 封`:''));
+    await loadStatus();
+    return d;
+  }catch(e){
+    showBanner('API 错误 ('+u+'): '+e.message,false);
+    alert('操作失败: '+e.message);
+  }
 }
 async function loadStatus(){
-  const d=await(await fetch('/status')).json();
-  document.getElementById('c-status').textContent=d.auto_polling?'运行中':'已停止';
-  document.getElementById('c-status').className='val '+(d.auto_polling?'on':'off');
-  document.getElementById('c-interval').textContent=d.poll_interval_seconds+'秒';
-  document.getElementById('c-email').textContent=d.email_account||'-';
-  document.getElementById('c-model').textContent=d.llm_model||'-';
+  try{
+    const d=await fetchJson('/status');
+    document.getElementById('c-status').textContent=d.auto_polling?'运行中':'已停止';
+    document.getElementById('c-status').className='val '+(d.auto_polling?'on':'off');
+    document.getElementById('c-interval').textContent=(d.poll_interval_seconds!=null?d.poll_interval_seconds:'-')+'秒';
+    document.getElementById('c-email').textContent=d.email_account||'-';
+    document.getElementById('c-model').textContent=d.llm_model||'-';
+  }catch(e){
+    showBanner('无法连接 /status: '+e.message+' — 请确认本机已用 uvicorn 启动服务 (例: 访问同一地址的 /status) ',false);
+    document.getElementById('c-status').textContent='错误';
+    return false;
+  }
+  return true;
 }
 async function loadKols(){
-  const d=await(await fetch('/kols')).json();
-  document.getElementById('c-kols').textContent=d.count;
   const el=document.getElementById('kol-list');
-  if(!d.kols.length){el.innerHTML='<div class="empty">暂无 KOL 记录</div>';return;}
-  el.innerHTML=d.kols.map(k=>`<div class="kol-item s${k.current_stage}">
-    <div class="kol-name">${esc(k.kol_name||k.kol_email)}<span class="sb sb${k.current_stage}">阶段${k.current_stage} ${SL[k.current_stage]||''}</span></div>
-    <div class="kol-meta">${esc(k.kol_email)} · ${k.updated_at.slice(0,16)}</div>
-    ${k.notes?`<div class="kol-meta" style="margin-top:3px;color:#6b7280">${esc(k.notes.slice(0,90))}</div>`:''}
-  </div>`).join('');
+  try{
+    const d=await fetchJson('/kols');
+    if(!d||!Array.isArray(d.kols)){el.innerHTML='<div class="empty">数据格式异常</div>';return;}
+    document.getElementById('c-kols').textContent=String(d.count??d.kols.length);
+    if(!d.kols.length){el.innerHTML='<div class="empty">暂无 KOL 记录</div>';return;}
+    el.innerHTML=d.kols.map(k=>{
+      const st=Number(k.current_stage||1);
+      const uat=(k.updated_at||'').toString();
+      return `<div class="kol-item s${st}" style="display:flex;align-items:flex-start;gap:10px">
+    <div style="flex:1;cursor:pointer" onclick="openThread(${JSON.stringify(k.thread_id)},${JSON.stringify(k.kol_name||k.kol_email)})">
+      <div class="kol-name">${esc(k.kol_name||k.kol_email)}<span class="sb sb${st}">阶段${st} ${SL[st]||''}</span></div>
+      <div class="kol-meta">${esc(k.kol_email)} · 更新: ${esc(uat.slice(0,16))}</div>
+      ${k.notes?`<div class="kol-meta" style="margin-top:3px;color:#6b7280">${esc(String(k.notes).slice(0,100))}</div>`:''}
+    </div>
+    <button class="btn-del-sm" type="button" onclick="event.stopPropagation();deleteThread(${JSON.stringify(k.thread_id)},${JSON.stringify(k.kol_name||k.kol_email)})">🗑️ 删除</button>
+  </div>`;
+    }).join('');
+    return true;
+  }catch(e){
+    el.innerHTML='<div class="empty">加载失败: '+esc(e.message)+'</div>';
+    showBanner('GET /kols 失败: '+e.message,false);
+    return false;
+  }
+}
+async function loadProcessed(){
+  const tb=document.getElementById('proc-body');
+  try{
+    const d=await fetchJson('/processed?limit=100');
+    if(!d||!Array.isArray(d.records)){tb.innerHTML='<tr><td colspan="6" class="empty">数据格式异常</td></tr>';return;}
+    document.getElementById('c-proc').textContent=String(d.count??d.records.length);
+    if(!d.records.length){tb.innerHTML='<tr><td colspan="6" class="empty">暂无处理记录</td></tr>';return;}
+    tb.innerHTML=d.records.map(r=>`<tr>
+    <td style="white-space:nowrap;font-size:11px">${(r.processed_at||'').toString().slice(0,16)}</td>
+    <td><div style="font-weight:600;font-size:13px">${esc(r.kol_name||r.kol_email||'-')}</div><div style="font-size:10px;color:#64748b">${esc(r.kol_email||'')}</div></td>
+    <td class="tid" title="${esc(r.thread_id)}">${esc(r.thread_id||'')}</td>
+    <td class="tid" title="${esc(r.message_id)}">${esc((r.message_id||'').toString().slice(0,24))}</td>
+    <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.subject||'-')}</td>
+    <td class="excerpt" title="${esc(r.body_excerpt||'')}">${esc((r.body_excerpt||'').toString().slice(0,80))}</td>
+  </tr>`).join('');
+    return true;
+  }catch(e){
+    tb.innerHTML='<tr><td colspan="6" class="empty">加载失败: '+esc(e.message)+'</td></tr>';
+    showBanner('GET /processed 失败: '+e.message,false);
+    return false;
+  }
 }
 async function loadLogs(){
-  const d=await(await fetch('/logs?tail=60')).json();
   const el=document.getElementById('log-list');
-  if(!d.logs.length){el.innerHTML='<div class="empty">暂无日志</div>';return;}
-  el.innerHTML=[...d.logs].reverse().map(l=>`<div class="log-item">
-    <span class="log-ts">${l.timestamp}</span>
-    <span class="log-lv lv-${l.level}">${l.level}</span>
-    <span class="log-msg">${esc(l.message)}</span>
+  try{
+    const d=await fetchJson('/logs?tail=80');
+    if(!d||!Array.isArray(d.logs)){el.innerHTML='<div class="empty">数据格式异常</div>';return true;}
+    if(!d.logs.length){el.innerHTML='<div class="empty">暂无日志</div>';return true;}
+    el.innerHTML=[...d.logs].reverse().map(l=>`<div class="log-item">
+    <span class="log-ts">${esc(l.timestamp||'')}</span>
+    <span class="log-lv lv-${esc(l.level||'INFO')}">${esc(l.level||'')}</span>
+    <span class="log-msg">${esc(l.message||'')}</span>
   </div>`).join('');
+    return true;
+  }catch(e){
+    el.innerHTML='<div class="empty">加载失败: '+esc(e.message)+'</div>';
+    return false;
+  }
 }
-function loadAll(){loadStatus();loadKols();loadLogs();}
+async function openThread(threadId, name){
+  document.getElementById('modal-title').textContent='对话详情 — '+(name||'');
+  document.getElementById('modal-body').innerHTML='<div class="empty">加载中...</div>';
+  document.getElementById('modal-bg').classList.add('open');
+  try{
+    const d=await fetchJson('/thread/'+encodeURIComponent(threadId)+'?limit=20');
+    if(!d||!Array.isArray(d.messages)||!d.messages.length){
+      document.getElementById('modal-body').innerHTML='<div class="empty">暂无对话记录</div>';return;
+    }
+    document.getElementById('modal-body').innerHTML=d.messages.map(m=>`
+      <div class="msg-bubble msg-${m.role==='our'?'our':'kol'}">
+        <div class="msg-role">${m.role==='our'?'我方回复':'KOL 来信'}</div>
+        ${m.subject?`<div class="msg-subj">主题: ${esc(m.subject)}</div>`:''}
+        <div>${esc(m.body||'').replace(/\\n/g,'<br>')}</div>
+        <div class="msg-ts">${(m.created_at||'').toString().slice(0,16)}</div>
+      </div>`).join('');
+  }catch(e){
+    document.getElementById('modal-body').innerHTML='<div class="empty">加载失败: '+esc(e.message)+'</div>';
+  }
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+async function deleteThread(threadId, name){
+  if(!confirm('确认删除「' + name + '」的全部对话历史？\\n（kol_threads / processed_messages / thread_messages 三表同步删除）')) return;
+  try{
+    const d=await fetchJson('/thread/'+encodeURIComponent(threadId),{method:'DELETE'});
+    alert('已删除，共清除 '+(d.deleted_rows??0)+' 条记录');
+    await loadKols(); await loadProcessed();
+  }catch(e){
+    showBanner('删除失败: '+e.message,false);
+    alert('删除失败: '+e.message);
+  }
+}
+async function clearAll(){
+  if(!confirm('⚠️ 确认清空全部数据？\\n所有 KOL 会话、处理记录、对话历史将被彻底删除，此操作不可撤销！')) return;
+  try{
+    const d=await fetchJson('/all-data',{method:'DELETE'});
+    alert('已清空全部数据\\n thread_messages: '+(d.thread_messages??0)+' 条\\n processed_messages: '+(d.processed_messages??0)+' 条\\n kol_threads: '+(d.kol_threads??0)+' 条');
+    await loadKols(); await loadProcessed();
+  }catch(e){
+    showBanner('清空失败: '+e.message,false);
+    alert('清空失败: '+e.message);
+  }
+}
+async function loadAll(){
+  const a=await loadStatus();
+  const b=await loadKols();
+  const c=await loadProcessed();
+  const d=await loadLogs();
+  if(a&&b&&c&&d) clearBannerIfOk();
+}
 loadAll();
-setInterval(loadStatus,5000);setInterval(loadLogs,4000);setInterval(loadKols,10000);
+setInterval(()=>{loadStatus().catch(()=>{});},5000);
+setInterval(()=>{loadLogs().catch(()=>{});},4000);
+setInterval(()=>{loadKols().catch(()=>{});loadProcessed().catch(()=>{});},15000);
 </script>
 </body>
 </html>"""
