@@ -1,82 +1,72 @@
 [
   {
-    "id": "P001",
     "name": "竹纤维抗菌床品套装",
-    "tagline": "天然竹纤维材质，抑菌透气，告别过敏困扰",
-    "scene": "卧室睡眠改善，适合过敏体质家庭及追求高品质睡眠人士",
+    "description": "天然竹纤维材质，主打亲肤、透气和低敏睡眠体验，适合卧室居家内容、睡眠改善和敏感肌人群分享。",
     "keywords": ["床品", "被套", "枕套", "睡眠", "bedding", "bamboo", "sleep", "anti-bacterial", "hypoallergenic", "home", "bedroom"],
-    "intro": "采用100%有机竹纤维，天然抑菌率高达99.8%，亲肤透气四季皆宜，让每一夜都成为高质量睡眠。"
+    "store_name": "Aurora Home",
+    "asin": "B0CHBED001"
   },
   {
-    "id": "P002",
     "name": "北欧风实木落地收纳架",
-    "tagline": "榉木实木框架，简约北欧设计，承重稳固不变形",
-    "scene": "客厅、卧室、书房收纳整理，展示绿植与摆件",
+    "description": "榉木实木框架搭配北欧极简设计，适合家居整理、收纳美学和空间改造类创作者展示。",
     "keywords": ["收纳", "置物架", "书架", "北欧", "实木", "storage", "shelf", "nordic", "wood", "home decor", "living room"],
-    "intro": "精选优质榉木打造，五层可调节隔板，承重达50kg，北欧极简美学与强大收纳力的完美融合。"
+    "store_name": "Aurora Home",
+    "asin": "B0CHSTO002"
   },
   {
-    "id": "P003",
     "name": "智能香薰加湿器",
-    "tagline": "超声波冷雾技术，香薰加湿二合一，APP智能控制",
-    "scene": "卧室、办公室、客厅，改善空气湿度，营造舒适环境",
+    "description": "超声波冷雾技术，支持香薰与加湿双模式，适合卧室、办公桌和舒适居家氛围内容。",
     "keywords": ["加湿器", "香薰", "空气", "humidifier", "aromatherapy", "smart", "bedroom", "home", "air quality", "essential oil"],
-    "intro": "超声波雾化核心，4L大容量水箱，连接APP可定时调节，支持精油香薰模式，全屋湿度守护者。"
+    "store_name": "Aurora Home",
+    "asin": "B0CHHUM003"
   },
   {
-    "id": "P004",
     "name": "人体工学腰靠护脊坐垫套装",
-    "tagline": "记忆棉填充，曲线贴合脊椎，久坐不疲劳",
-    "scene": "居家办公、长途驾驶、办公室椅背防护，缓解腰酸背痛",
+    "description": "记忆棉材质贴合腰背曲线，适合居家办公、久坐族、驾驶场景和人体工学类评测内容。",
     "keywords": ["腰靠", "坐垫", "护腰", "久坐", "人体工学", "ergonomic", "lumbar support", "cushion", "office", "back pain", "home office"],
-    "intro": "医疗级慢回弹记忆棉，精准贴合腰椎曲线，3D立体镂空透气设计，让长时间伏案工作不再腰酸。"
+    "store_name": "Aurora Comfort",
+    "asin": "B0CHERG004"
   },
   {
-    "id": "P005",
     "name": "多功能折叠岛台餐桌",
-    "tagline": "一键折叠收纳，厨房岛台与餐桌自由切换",
-    "scene": "小户型厨房扩容，临时备餐台，移动餐桌",
+    "description": "折叠式设计节省空间，可在厨房岛台与小户型餐桌之间切换，适合家装和收纳类内容合作。",
     "keywords": ["餐桌", "折叠桌", "岛台", "厨房", "小户型", "folding table", "kitchen island", "dining", "space saving", "home"],
-    "intro": "防水防油PVC台面，可折叠设计节省70%空间，附带4个储物挂钩和万向轮，小户型厨房的空间魔法师。"
+    "store_name": "Aurora Home",
+    "asin": "B0CHTAB005"
   },
   {
-    "id": "P006",
     "name": "专业防滑加厚瑜伽垫",
-    "tagline": "天然橡胶底层，双面防滑，6mm黄金厚度护关节",
-    "scene": "居家瑜伽、普拉提、拉伸训练，室内健身使用",
+    "description": "天然橡胶底层与双面防滑设计，适合居家瑜伽、普拉提和室内运动类达人测评。",
     "keywords": ["瑜伽垫", "健身垫", "运动", "瑜伽", "yoga mat", "exercise", "fitness", "non-slip", "pilates", "workout", "sports"],
-    "intro": "天然橡胶底+TPE面层双重防滑，6mm厚度精准保护膝关节，183×68cm大尺寸，附赠背带方便携带。"
+    "store_name": "Aurora Active",
+    "asin": "B0CHFIT006"
   },
   {
-    "id": "P007",
     "name": "智能跳绳计数器套装",
-    "tagline": "蓝牙计数，自动识别跳绳次数，配套App记录每日运动",
-    "scene": "居家有氧训练、减脂塑形、亲子健身互动",
+    "description": "支持蓝牙计数和运动记录，适合减脂训练、家庭健身和轻器械运动内容场景。",
     "keywords": ["跳绳", "健身", "运动", "减脂", "jump rope", "smart", "fitness", "cardio", "workout", "sports", "exercise"],
-    "intro": "内置芯片自动计数精准到0次误差，轴承顺滑速度可调，配套App记录卡路里燃烧，30天进步一目了然。"
+    "store_name": "Aurora Active",
+    "asin": "B0CHFIT007"
   },
   {
-    "id": "P008",
     "name": "可调节哑铃套装（5-30kg）",
-    "tagline": "一套顶替15副哑铃，旋钮一拨快速切换重量",
-    "scene": "居家力量训练、肌肉塑形，取代健身房哑铃区",
+    "description": "多档位快速切换，适合家庭力量训练、增肌塑形和空间节省型健身内容。",
     "keywords": ["哑铃", "力量训练", "健身", "增肌", "dumbbell", "weight", "strength training", "fitness", "gym", "muscle", "sports"],
-    "intro": "铸铁+ABS外壳，5-30kg共15档旋钮调节，3秒完成重量切换，单副替代整套哑铃组，节省90%空间。"
+    "store_name": "Aurora Active",
+    "asin": "B0CHFIT008"
   },
   {
-    "id": "P009",
     "name": "便携式筋膜枪深层肌肉按摩仪",
-    "tagline": "6档振动频率，20mm冲程深层放松，低噪音不扰邻",
-    "scene": "运动后肌肉恢复、久坐肩颈放松、消除酸痛疲劳",
+    "description": "主打深层肌肉放松与运动恢复，适合健身恢复、久坐肩颈放松和健康护理内容。",
     "keywords": ["筋膜枪", "按摩", "肌肉放松", "运动恢复", "massage gun", "muscle", "recovery", "fascia", "sports", "relaxation", "health"],
-    "intro": "无刷电机超静音设计（<45dB），6速调节适配不同部位，2500mAh电池续航6小时，附6个专业按摩头。"
+    "store_name": "Aurora Recovery",
+    "asin": "B0CHREC009"
   },
   {
-    "id": "P010",
     "name": "弹力带阻力训练组合套装",
-    "tagline": "5级渐进阻力，天然乳胶材质，全身训练一套搞定",
-    "scene": "居家拉伸、力量辅助训练、康复训练、出差随身携带",
+    "description": "多级阻力配置，便于居家训练、拉伸康复和差旅健身，是轻便型运动内容的理想合作品。",
     "keywords": ["弹力带", "阻力带", "训练", "拉伸", "resistance band", "elastic", "fitness", "workout", "portable", "sports", "exercise"],
-    "intro": "天然乳胶制成弹性持久不断裂，5条阻力等级（5-40lbs）渐进配置，附教学手册，随时随地全身锻炼。"
+    "store_name": "Aurora Active",
+    "asin": "B0CHFIT010"
   }
 ]

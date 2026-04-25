@@ -220,7 +220,7 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 .btn-rf{background:#818cf8;color:#fff}.btn-rf:hover{background:#6366f1}
 .btn-del{background:#be123c;color:#fff}.btn-del:hover{background:#9f1239}
 .btn-del-sm{background:transparent;border:1px solid #be123c;color:#fb7185;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;transition:.15s}.btn-del-sm:hover{background:#be123c;color:#fff}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
 .card{background:rgba(255,255,255,.08);border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,.12)}
 .card h4{color:#94a3b8;font-size:11px;margin-bottom:8px;text-transform:uppercase}
 .card .val{font-size:20px;font-weight:700;color:#a78bfa;word-break:break-all}
@@ -239,6 +239,21 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 .kol-meta{font-size:11px;color:#94a3b8}
 .sb{display:inline-block;padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;margin-left:6px}
 .sb1{background:#1e3a5f;color:#60a5fa}.sb2{background:#422006;color:#fbbf24}.sb3{background:#064e3b;color:#34d399}.sb4{background:#4a044e;color:#f472b6}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.summary-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px}
+.summary-card .k{font-size:11px;color:#94a3b8;text-transform:uppercase;margin-bottom:6px}
+.summary-card .v{font-size:22px;font-weight:700;color:#e9d5ff}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chip{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;line-height:1.4}
+.chip-status{background:rgba(129,140,248,.18);color:#c7d2fe}
+.chip-stage{background:rgba(167,139,250,.16);color:#ddd6fe}
+.chip-positive{background:rgba(16,185,129,.16);color:#86efac}
+.chip-mild{background:rgba(251,191,36,.16);color:#fde68a}
+.chip-severe{background:rgba(248,113,113,.16);color:#fecaca}
+.info-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px;margin-top:8px}
+.info-box{background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:8px 10px}
+.info-box .label{font-size:10px;color:#94a3b8;text-transform:uppercase;margin-bottom:4px}
+.info-box .text{font-size:12px;color:#e2e8f0;line-height:1.45;word-break:break-word}
 /* processed table */
 .tbl{width:100%;border-collapse:collapse;font-size:12px}
 .tbl th{text-align:left;padding:8px 10px;background:rgba(255,255,255,.06);color:#94a3b8;font-size:11px;text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,.1)}
@@ -289,6 +304,9 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
   <div class="card"><h4>LLM 模型</h4><div class="val" id="c-model" style="font-size:12px">-</div></div>
   <div class="card"><h4>KOL 总数</h4><div class="val" id="c-kols">-</div></div>
   <div class="card"><h4>已处理邮件</h4><div class="val" id="c-proc">-</div></div>
+  <div class="card"><h4>待收货</h4><div class="val" id="c-waiting">-</div></div>
+  <div class="card"><h4>价值转化中</h4><div class="val" id="c-value">-</div></div>
+  <div class="card"><h4>危机处理中</h4><div class="val" id="c-crisis">-</div></div>
 </div>
 
 <div class="tabs">
@@ -298,7 +316,15 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 </div>
 
 <div id="tab-kols" class="tab-content active">
-  <div class="panel"><div id="kol-list"><div class="empty">加载中...</div></div></div>
+  <div class="panel">
+    <div id="kol-summary" class="summary-grid">
+      <div class="summary-card"><div class="k">总线程</div><div class="v">-</div></div>
+      <div class="summary-card"><div class="k">正向反馈</div><div class="v">-</div></div>
+      <div class="summary-card"><div class="k">轻微不满</div><div class="v">-</div></div>
+      <div class="summary-card"><div class="k">强烈不满</div><div class="v">-</div></div>
+    </div>
+    <div id="kol-list"><div class="empty">加载中...</div></div>
+  </div>
 </div>
 
 <div id="tab-processed" class="tab-content">
@@ -335,7 +361,62 @@ h1{text-align:center;margin-bottom:24px;font-size:24px;color:#a78bfa}
 
 <script>
 const SL={1:'破冰邀请',2:'规则确认',3:'跟进评价',4:'返款确认'};
+const SENT_LABEL={positive:'正向反馈',mild_negative:'轻微不满',severe_negative:'强烈不满'};
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function shortText(v,n){return (v||'').toString().trim().slice(0,n||120);}
+function chipCls(sent){
+  if(sent==='positive') return 'chip chip-positive';
+  if(sent==='mild_negative') return 'chip chip-mild';
+  if(sent==='severe_negative') return 'chip chip-severe';
+  return 'chip chip-stage';
+}
+function summarizeExtracted(k){
+  const info=k&&typeof k.extracted_info==='object'&&k.extracted_info?k.extracted_info:{};
+  const blocks=[];
+  const order=info.order_info||{};
+  const value=info.value_info||{};
+  const refund=info.refund_info||{};
+  const recs=Array.isArray(info.recommended_products)?info.recommended_products:[];
+  if(recs.length){
+    blocks.push({label:'推荐产品',text:recs.map(x=>x.name||x.asin||'').filter(Boolean).join(' / ')});
+  }
+  if(order.recipient_name||order.product_name||order.address){
+    const lines=[order.recipient_name||'',order.product_name||'',shortText(order.address,60)].filter(Boolean);
+    blocks.push({label:'订单信息',text:lines.join(' · ')});
+  }
+  if(value.payment_account||value.review_link||value.review_screenshot_verified){
+    const lines=[
+      value.payment_method?`${value.payment_method}: ${value.payment_account||'待补充'}`:(value.payment_account||''),
+      value.review_link||'',
+      value.review_screenshot_verified?'已核实评价截图':''
+    ].filter(Boolean);
+    blocks.push({label:'价值信息',text:lines.join(' · ')});
+  }
+  if(refund.refund_account||refund.order_number||refund.issue_summary){
+    const lines=[refund.order_number?`订单号 ${refund.order_number}`:'',refund.refund_account||'',refund.issue_summary||''].filter(Boolean);
+    blocks.push({label:'退款信息',text:lines.join(' · ')});
+  }
+  if(info.intent_reasoning&&!blocks.length){
+    blocks.push({label:'识别备注',text:shortText(info.intent_reasoning,100)});
+  }
+  return blocks;
+}
+function renderSummaryStats(kols){
+  const sOf=k=>k.sentiment||((k.extracted_info&&k.extracted_info.sentiment)||'');
+  const total=kols.length;
+  const pos=kols.filter(k=>k.status==='满意待收款信息'||k.status==='已生成标准工单'||sOf(k)==='positive').length;
+  const mild=kols.filter(k=>k.status==='返款安抚中'||sOf(k)==='mild_negative').length;
+  const severe=kols.filter(k=>k.status==='危机退款处理中'||k.status==='已生成危机工单'||sOf(k)==='severe_negative').length;
+  document.getElementById('kol-summary').innerHTML=[
+    {k:'总线程',v:total},
+    {k:'正向反馈',v:pos},
+    {k:'轻微不满',v:mild},
+    {k:'强烈不满',v:severe},
+  ].map(x=>`<div class="summary-card"><div class="k">${esc(x.k)}</div><div class="v">${esc(String(x.v))}</div></div>`).join('');
+  document.getElementById('c-waiting').textContent=String(kols.filter(k=>k.status==='待收货').length);
+  document.getElementById('c-value').textContent=String(kols.filter(k=>k.status==='满意待收款信息'||k.status==='已生成标准工单').length);
+  document.getElementById('c-crisis').textContent=String(kols.filter(k=>k.status==='危机退款处理中'||k.status==='已生成危机工单').length);
+}
 function showBanner(text,isOk){
   const b=document.getElementById('api-banner');
   b.textContent=text;
@@ -401,15 +482,27 @@ async function loadKols(){
     const d=await fetchJson('/kols');
     if(!d||!Array.isArray(d.kols)){el.innerHTML='<div class="empty">数据格式异常</div>';return;}
     document.getElementById('c-kols').textContent=String(d.count??d.kols.length);
+    renderSummaryStats(d.kols);
     if(!d.kols.length){el.innerHTML='<div class="empty">暂无 KOL 记录</div>';return;}
     el.innerHTML=d.kols.map(k=>{
       const st=Number(k.current_stage||1);
       const uat=(k.updated_at||'').toString();
+      const status=k.status||'未知状态';
+      const infoBlocks=summarizeExtracted(k);
+      const sent=k.sentiment||((k.extracted_info&&k.extracted_info.sentiment)||'');
+      const sentimentChip=sent?`<span class="${chipCls(sent)}">${esc(SENT_LABEL[sent]||sent)}</span>`:'';
+      const infoHtml=infoBlocks.length?`<div class="info-list">${infoBlocks.map(b=>`<div class="info-box"><div class="label">${esc(b.label)}</div><div class="text">${esc(b.text)}</div></div>`).join('')}</div>`:'';
       return `<div class="kol-item s${st}" style="display:flex;align-items:flex-start;gap:10px">
     <div style="flex:1;cursor:pointer" onclick="openThread(${JSON.stringify(k.thread_id)},${JSON.stringify(k.kol_name||k.kol_email)})">
       <div class="kol-name">${esc(k.kol_name||k.kol_email)}<span class="sb sb${st}">阶段${st} ${SL[st]||''}</span></div>
       <div class="kol-meta">${esc(k.kol_email)} · 更新: ${esc(uat.slice(0,16))}</div>
+      <div class="chips">
+        <span class="chip chip-status">${esc(status)}</span>
+        <span class="chip chip-stage">${esc('DB阶段 ' + st)}</span>
+        ${sentimentChip}
+      </div>
       ${k.notes?`<div class="kol-meta" style="margin-top:3px;color:#6b7280">${esc(String(k.notes).slice(0,100))}</div>`:''}
+      ${infoHtml}
     </div>
     <button class="btn-del-sm" type="button" onclick="event.stopPropagation();deleteThread(${JSON.stringify(k.thread_id)},${JSON.stringify(k.kol_name||k.kol_email)})">🗑️ 删除</button>
   </div>`;
@@ -482,7 +575,7 @@ async function openThread(threadId, name){
 }
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
 async function deleteThread(threadId, name){
-  if(!confirm('确认删除「' + name + '」的全部对话历史？\\n（kol_threads / processed_messages / thread_messages 三表同步删除）')) return;
+  if(!confirm('确认删除「' + name + '」的全部对话历史？\\n业务表与 LangGraph checkpoints 都会一并删除。')) return;
   try{
     const d=await fetchJson('/thread/'+encodeURIComponent(threadId),{method:'DELETE'});
     alert('已删除，共清除 '+(d.deleted_rows??0)+' 条记录');
@@ -493,10 +586,10 @@ async function deleteThread(threadId, name){
   }
 }
 async function clearAll(){
-  if(!confirm('⚠️ 确认清空全部数据？\\n所有 KOL 会话、处理记录、对话历史将被彻底删除，此操作不可撤销！')) return;
+  if(!confirm('⚠️ 确认清空全部数据？\\n所有 KOL 会话、处理记录、对话历史以及 LangGraph checkpoints 都会被彻底删除，此操作不可撤销！')) return;
   try{
     const d=await fetchJson('/all-data',{method:'DELETE'});
-    alert('已清空全部数据\\n thread_messages: '+(d.thread_messages??0)+' 条\\n processed_messages: '+(d.processed_messages??0)+' 条\\n kol_threads: '+(d.kol_threads??0)+' 条');
+    alert('已清空全部数据\\n thread_messages: '+(d.thread_messages??0)+' 条\\n processed_messages: '+(d.processed_messages??0)+' 条\\n kol_threads: '+(d.kol_threads??0)+' 条\\n checkpoints: '+(d.checkpoints??0)+' 条\\n checkpoint_writes: '+(d.checkpoint_writes??0)+' 条');
     await loadKols(); await loadProcessed();
   }catch(e){
     showBanner('清空失败: '+e.message,false);
